@@ -30,8 +30,8 @@ class View {
 
       // Contains elements in the form: [x, y, true / false],
       // where true = step on field and false = leave field.
-      this.takenWay = [];
-      this.takenWay2D = [];
+      this.wayToDraw = [];
+      this.drawnWay = [];
       this.cellNumber = cellNumber;
       // Step timer properties.
       this.drawingSpeed = drawSpeed;
@@ -76,12 +76,12 @@ class View {
 
    drawAll() {
       this.painter.drawBackground();
-      this.painter.drawForeground(this.takenWay2D);
+      this.painter.drawForeground(this.drawnWay);
    }
 
    startDrawingForeground(takenWay) {
       this._resetForeground();
-      this.takenWay = takenWay.slice();
+      this.wayToDraw = takenWay.slice();
 
       this.nextStepTimer = window.setInterval(
          this._drawNextStepOnForeground,
@@ -90,20 +90,26 @@ class View {
 
    _drawNextStepOnForeground() {
       let self = window.viewRef;
-      if (self.takenWay.length === 0) {
+      if (self.wayToDraw.length === 0) {
          window.clearInterval(self.nextStepTimer);
          return;
       }
-      var x = self.takenWay[0][0];
-      var y = self.takenWay[0][1];
-      var visited = self.takenWay[0][2];
 
-      // Draw way.
-      self.takenWay2D[x][y] = visited;
-      self.painter.drawForeground(self.takenWay2D);
+      let visited = self.wayToDraw[0][2];
 
-      // Remove processed item.
-      self.takenWay.splice(0, 1);
+      // Put the next step into drawnWay.
+      if (visited) {
+         self.drawnWay.push(self.wayToDraw[0]);
+      }
+      // Or remove the last step if the next step is to leave a field.
+      else {
+         self.drawnWay.pop();
+      }
+
+      // Remove the next step from wayToDraw.
+      self.wayToDraw.splice(0, 1);
+
+      window.requestAnimationFrame(() => self.painter.drawForeground(self.drawnWay));
    }
 
    _startResizeTimer(evt) {
@@ -120,8 +126,8 @@ class View {
       if (this.nextStepTimer !== null) {
          window.clearInterval(this.nextStepTimer);
       }
-      this.takenWay = [];
-      this.takenWay2D = this._createArray2D(this.cellNumber);
+      this.wayToDraw = [];
+      this.drawnWay = [];
    }
 
    _resizeView() {
@@ -137,7 +143,7 @@ class View {
 
       // Apply new size.
       let viewWidth =  newWidth - self.controlArea.width() - 45;
-      let viewHeight = newHeight * 0.9;
+      let viewHeight = newHeight - 30;
       let size = Math.min(viewWidth, viewHeight);
       self.canvasElements.forEach(function (element) {
          element.width = size;
@@ -152,13 +158,5 @@ class View {
       // Save new size.
       self.oldWidth = newWidth;
       self.oldHeight = newHeight;
-   }
-
-   _createArray2D(dimension) {
-      let array = new Array(dimension);
-      for (let x = 0; x < dimension; x++) {
-         array[x] = Array.apply(false, new Array(dimension)).map(Boolean);
-      }
-      return array;
    }
 }

@@ -18,12 +18,12 @@ class Painter {
    constructor(canvasBG, canvasFG, cellNumber) {
       // Way properties.
       this.wayBorderColour = "#666666";
-      this.wayFillColour = "#CCCCCC";
+      this.wayFillColour = "#EDEDED";
       this.wayLineWidth = 3.0;
 
       // Star properties.
       this.starBorderColour = "#555555";
-      this.starFillColour = "#fffc84";
+      this.starFillColour = "#997923";
       this.starLineWidth = 4.0;
 
       // Circle properties.
@@ -36,6 +36,7 @@ class Painter {
       this.dfsCanvasFG = canvasFG;
       this.dfsCtxBG = canvasBG.getContext("2d");
       this.dfsCtxFG = canvasFG.getContext("2d");
+      this.dfsCtxFG.imageSmoothingEnabled = true;
 
       // Field properties.
       this.windowWidth = 0;
@@ -61,26 +62,30 @@ class Painter {
       this._clearForeground();
    }
 
-   drawForeground(takenWay2D) {
-      this._clearForeground();
-      for (let x = 0; x < this.field2D.length; x++) {
-         for (let y = 0; y < this.field2D[0].length; y++) {
-            // Possible tiles.
-            if (this.field2D[x][y]) {
-               // Stepped on tile.
-               if (takenWay2D[x][y]) {
-                  this._drawStarOnFG(x, y, 5);
-               }
-               // Most left and most right cells.
-               else if ((x === 0) || (x === this.field2D.length - 1)) {
-                  this._drawCircleOnFG(x, y);
-               }
-            }
-         }
+   drawForeground(takenWay) {
+      // No way = nothing to draw;
+      if (takenWay.length === 0) {
+         return;
       }
+
+      this._clearForeground();
+      this.dfsCtxFG.beginPath();
+
+      for (let step = 0; step < takenWay.length; step++) {
+         let x = takenWay[step][0];
+         let y = takenWay[step][1];
+         this._drawStarOnFG(x, y, 5);
+      }
+
+      this.dfsCtxFG.closePath();
    }
 
    drawBackground() {
+      // No field = nothing to draw.
+      if (this.field2D.length === 0) {
+         return;
+      }
+
       this._clearBackground();
       this.dfsCtxBG.beginPath();
 
@@ -184,6 +189,17 @@ class Painter {
       this.dfsCtxBG.stroke();
       this.dfsCtxBG.fill();
       this.dfsCtxBG.closePath();
+
+      // Most left and most right cells.
+      for (let y = 0; y < this.field2D[0].length; y++) {
+         if (this.field2D[0][y]) {
+            this._drawCircleOnBG(0, y);
+         }
+
+         if (this.field2D[this.field2D.length - 1][y]) {
+            this._drawCircleOnBG(this.field2D.length - 1, y);
+         }
+      }
    }
 
    _clearBackground() {
@@ -330,52 +346,57 @@ class Painter {
    }
 
    _drawStarOnFG(x, y, n) {
-      x = x * this.offset + this.offset / 2;
-      y = y * this.offset + this.offset / 2;
-      let inset = 0.45;
-      let radius = this.offset / 5 - 1;
-      if (radius < 1) { radius = 1; }
+      let cX = (x * this.offset) + (this.offset / 2);
+      let cY = (y * this.offset) + (this.offset / 2);
+      let radius = Math.max((this.offset / 4 - 1), 1);
 
-      this.dfsCtxFG.save();
-      this.dfsCtxFG.beginPath();
-      this.dfsCtxFG.translate(x, y);
-      this.dfsCtxFG.moveTo(0, 0 - radius);
-
-      for (let i = 0; i < n; i++) {
-         this.dfsCtxFG.rotate(Math.PI / n);
-         this.dfsCtxFG.lineTo(0, 0 - (radius * inset));
-         this.dfsCtxFG.rotate(Math.PI / n);
-         this.dfsCtxFG.lineTo(0, 0 - radius);
-      }
-      this.dfsCtxFG.closePath();
+      // Set 
       this.dfsCtxFG.strokeStyle = this.starBorderColour;
       this.dfsCtxFG.fillStyle = this.starFillColour;
-      this.dfsCtxFG.lineWidth = this.starLineWidth;
-
-      this.dfsCtxFG.stroke();
-      this.dfsCtxFG.fill();
-      this.dfsCtxFG.restore();
-   }
-
-   _drawCircleOnFG(x, y) {
-      x = x * this.offset + this.offset / 2;
-      y = y * this.offset + this.offset / 2;
-      let radius = this.offset / 3 - 2;
-      if (radius < 1) { radius = 1; }
-
-      this.dfsCtxFG.save();
+      if (radius <= 3) {
+         this.dfsCtxFG.lineWidth = 2;
+      }
+      else {
+         this.dfsCtxFG.lineWidth = this.starLineWidth;
+      }
 
       this.dfsCtxFG.beginPath();
-      this.dfsCtxFG.arc(x, y, radius, 0, 2*Math.PI);
-      this.dfsCtxFG.closePath();
+      this.dfsCtxFG.moveTo(cX + radius, cY);
 
-      this.dfsCtxFG.strokeStyle = this.circleBorderColour;
-      this.dfsCtxFG.fillStyle = this.circleFillColour;
-      this.dfsCtxFG.lineWidth = this.circleLineWidth;
+      for (let i = 1; i <= n * 2; i++)
+      {
+         let theta = i * (Math.PI * 2) / (n * 2);
+         let radiusDistance = ((i % 2 === 0) ? radius : (radius / 2));
+
+         let xPos = cX + (radiusDistance * Math.cos(theta));
+         let yPos = cY + (radiusDistance * Math.sin(theta));
+         this.dfsCtxFG.lineTo(xPos, yPos);
+      }
+
+      this.dfsCtxFG.closePath();
       this.dfsCtxFG.stroke();
       this.dfsCtxFG.fill();
+   }
 
-      this.dfsCtxFG.restore();
+   _drawCircleOnBG(x, y) {
+      x = Math.min((x * this.offset) + (this.offset / 2));
+      y = Math.min((y * this.offset) + (this.offset / 2));
+      let radius = Math.floor(this.offset / 3 - 2);
+      if (radius < 1) {
+         radius = 1;
+      }
+      this.dfsCtxBG.beginPath();
+
+      this.dfsCtxBG.strokeStyle = this.circleBorderColour;
+      this.dfsCtxBG.fillStyle = this.circleFillColour;
+      this.dfsCtxBG.lineWidth = this.circleLineWidth;
+
+      this.dfsCtxBG.arc(x, y, radius, 0, 2*Math.PI);
+
+      this.dfsCtxBG.stroke();
+      this.dfsCtxBG.fill();
+
+      this.dfsCtxBG.closePath();
    }
 
    _connections(x, y) {
